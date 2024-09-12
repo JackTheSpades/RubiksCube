@@ -28,22 +28,18 @@ public static class Extensions
 
     public static void Draw(this RenderTarget target, IPolygon polygon, RenderStates states)
     {
-        List<Triangle> triangles = new List<Triangle>(polygon.GetTriangles());
+        List<Triangle3f> triangles = new List<Triangle3f>(polygon.GetTriangles());
         VertexArray vertexArray = new VertexArray(PrimitiveType.Triangles);
-
-        Matrix4x4 matrix =
-            Matrix4x4.CreateScale(polygon.Scale.X, polygon.Scale.Y, polygon.Scale.Z) *
-            Matrix4x4.CreateTranslation(polygon.Position.X, polygon.Position.Y, polygon.Position.Z);
 
         // draw back to front
         foreach (var triangle in triangles.OrderBy(t => t.MinZ))
         {
-            var p1 = Convert(matrix.Multiply(triangle.P1));
-            var p2 = Convert(matrix.Multiply(triangle.P2));
-            var p3 = Convert(matrix.Multiply(triangle.P3));
+            var p1 = Convert(triangle.P1);
+            var p2 = Convert(triangle.P2);
+            var p3 = Convert(triangle.P3);
 
             // prune triangles that are clockwise (seen from behind)
-            if (!Triangle.IsVisible(p1, p2, p3))
+            if (!Triangle3f.IsVisible(p1, p2, p3))
                 continue;
 
             vertexArray.Append(new Vertex(p1, triangle.Col, new Vector2f(0, 0)));
