@@ -14,7 +14,7 @@ namespace RubiksCubeSfml;
 /// Unit Cube centered about the origin.
 /// </summary>
 /// <remarks>Composed of 12 triangles, 2 for each face in the order of front, right, back, left, top, down.</remarks>
-public class Cube : ITransformable, IPolygon
+public class Cube : IPolygon
 {
     Triangle3f[] Triangles;
 

@@ -5,7 +5,7 @@ using System.Numerics;
 
 namespace RubiksCubeSfml;
 
-public class Triangle3f : IEnumerable<Vector3f>, ITransformable, IPolygon
+public class Triangle3f : IEnumerable<Vector3f>, IPolygon
 {
     public float MinZ { get; private set; }
 
