@@ -5,14 +5,14 @@ using System.Numerics;
 
 namespace RubiksCubeSfml;
 
-public class Triangle3f : IEnumerable<Vector3f>, IPolygon
+public struct Triangle3f : IEnumerable<Vector3f>
 {
-    public float MinZ { get; private set; }
+    public float MinZ { get; set; }
 
     public Color Col { get; }
-    public Vector3f P1 { get; private set; }
-    public Vector3f P2 { get; private set; }
-    public Vector3f P3 { get; private set; }
+    public Vector3f P1 { get; set; }
+    public Vector3f P2 { get; set; }
+    public Vector3f P3 { get; set; }
 
     public Triangle3f(Vector3f p1, Vector3f p2, Vector3f p3, Color c)
     {
@@ -37,13 +37,14 @@ public class Triangle3f : IEnumerable<Vector3f>, IPolygon
         return det > 0;
     }
 
-    public void Transform(Matrix4x4 matrix)
+    public Triangle3f Transform(Matrix4x4 matrix)
     {
-        P1 = matrix.Multiply(P1);
-        P2 = matrix.Multiply(P2);
-        P3 = matrix.Multiply(P3);
-
-        MinZ = float.Min(P1.Z, float.Min(P2.Z, P3.Z));
+        return new Triangle3f(
+            matrix.Multiply(P1),
+            matrix.Multiply(P2),
+            matrix.Multiply(P3),
+            Col
+        );
     }
 
 

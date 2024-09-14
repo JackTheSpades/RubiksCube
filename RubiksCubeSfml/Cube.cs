@@ -16,19 +16,23 @@ namespace RubiksCubeSfml;
 /// <remarks>Composed of 12 triangles, 2 for each face in the order of front, right, back, left, top, down.</remarks>
 public class Cube : IPolygon
 {
+
+
     Triangle3f[] Triangles;
+    public Matrix4x4 Transformation { get; set; }
 
-    Matrix4x4 TranslationScale;
-    Matrix4x4 TranslationScaleInverse;
+    //Matrix4x4 TranslationScale;
+    //Matrix4x4 TranslationScaleInverse;
 
-    public Cube(Color[] colors) : this(new Vector3f(0, 0, 0), new Vector3f(1f, 1f, 1f), colors) { }
-
-    public Cube(Vector3f position, Vector3f scale, Color[] colors)
+    public Cube(Color[] colors) : this(colors, Matrix4x4.Identity) { }
+    public Cube(Color[] colors, Matrix4x4 transformation)
     {
-        TranslationScale = Matrix4x4.CreateScale(scale.X, scale.Y, scale.Z) *
-            Matrix4x4.CreateTranslation(position.X, position.Y, position.Z);
-        if (!Matrix4x4.Invert(TranslationScale, out TranslationScaleInverse))
-            throw new ArgumentException($"{nameof(position)} and {nameof(scale)} could not be inverted.");
+        Transformation = transformation;
+
+        //TranslationScale = Matrix4x4.CreateScale(scale.X, scale.Y, scale.Z) *
+        //    Matrix4x4.CreateTranslation(position.X, position.Y, position.Z);
+        //if (!Matrix4x4.Invert(TranslationScale, out TranslationScaleInverse))
+        //    throw new ArgumentException($"{nameof(position)} and {nameof(scale)} could not be inverted.");
 
         if (!(colors.Length is 1 or 6 or 12))
             throw new ArgumentException($"{nameof(colors)} must be an array of length 1, 6, 12", nameof(colors));
@@ -78,15 +82,15 @@ public class Cube : IPolygon
 #endif
 
         // initial transformation for location and scaling
-        for (int i = 0; i < Triangles.Length; i++)
-            Triangles[i].Transform(TranslationScale);
+        //for (int i = 0; i < Triangles.Length; i++)
+        //    Triangles[i].Transform(TranslationScale);
     }
 
-    public void Transform(Matrix4x4 matrix)
-    {
-        for(int i = 0; i < Triangles.Length; i++)
-            Triangles[i].Transform(TranslationScaleInverse * matrix * TranslationScale);
-    }
+    //public void Transform(Matrix4x4 matrix)
+    //{
+    //    for(int i = 0; i < Triangles.Length; i++)
+    //        Triangles[i].Transform(TranslationScaleInverse * matrix * TranslationScale);
+    //}
 
-    public IEnumerable<Triangle3f> GetTriangles() => Triangles;
+    public IEnumerable<Triangle3f> GetTriangles() => Triangles.Select(t => t.Transform(Transformation));
 }

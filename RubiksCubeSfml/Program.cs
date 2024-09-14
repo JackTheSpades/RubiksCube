@@ -56,6 +56,7 @@ Color[] colors =
 
 
 PolygonList<Cube> polygons = new(8);
+Matrix4x4[] posScale = new Matrix4x4[8];
 Matrix4x4[] animation = new Matrix4x4[8];
 Random random = new(42);
 
@@ -68,10 +69,11 @@ for (int i = 0; i <  8; i++)
     int y = (i & 2) == 0 ? 1 : -1;
     int z = (i & 4) == 0 ? 1 : -1;
 
-    var position = new Vector3f(move * x, move * y, move * z);
-    var scale = new Vector3f(2.5f, 2.5f, 2.5f);
 
-    polygons.Add(new Cube(position, scale, colors));
+    polygons.Add(new Cube(colors,
+        Matrix4x4.CreateScale(2.5f) *
+        Matrix4x4.CreateTranslation(move * x, move * y, move * z)));
+
     animation[i] =
         Matrix4x4.CreateRotationX((float)(random.NextDouble() * 0.04 - 0.02)) *
         Matrix4x4.CreateRotationY((float)(random.NextDouble() * 0.04 - 0.02)) *
@@ -81,7 +83,6 @@ for (int i = 0; i <  8; i++)
     //sh.set
 
 }
-
 
 
 while (window.IsOpen)
@@ -95,10 +96,11 @@ while (window.IsOpen)
 
     for (int i = 0; i < polygons.Count; i++)
     {
-        polygons[i].Transform(animation[i]);
+        polygons[i].Transformation = animation[i] * polygons[i].Transformation;
     }
+    polygons.Transformation *= animation[2];
 
-    if(click is not null && drag is not null)
+    if (click is not null && drag is not null)
     {
         var vertArray = new SFML.Graphics.VertexArray(PrimitiveType.Lines, 2);
         vertArray[0] = new Vertex(click.Value);
