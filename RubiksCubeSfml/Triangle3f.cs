@@ -7,12 +7,13 @@ namespace RubiksCubeSfml;
 
 public struct Triangle3f : IEnumerable<Vector3f>
 {
-    public float MinZ { get; set; }
-
+    public float MinZ { get; }
+    public float MaxZ { get; }
     public Color Col { get; }
-    public Vector3f P1 { get; set; }
-    public Vector3f P2 { get; set; }
-    public Vector3f P3 { get; set; }
+
+    public Vector3f P1 { get; }
+    public Vector3f P2 { get; }
+    public Vector3f P3 { get; }
 
     public Triangle3f(Vector3f p1, Vector3f p2, Vector3f p3, Color c)
     {
@@ -22,6 +23,7 @@ public struct Triangle3f : IEnumerable<Vector3f>
         Col = c;
 
         MinZ = float.Min(p1.Z, float.Min(p2.Z, p3.Z));
+        MaxZ = float.Max(p1.Z, float.Max(p2.Z, p3.Z));
     }
 
     public static bool IsVisible(Vector2f p1, Vector2f p2, Vector2f p3)
@@ -37,16 +39,15 @@ public struct Triangle3f : IEnumerable<Vector3f>
         return det > 0;
     }
 
-    public Triangle3f Transform(Matrix4x4 matrix)
+    public static Triangle3f operator*(Triangle3f triangle, Matrix4x4 matrix)
     {
         return new Triangle3f(
-            matrix.Multiply(P1),
-            matrix.Multiply(P2),
-            matrix.Multiply(P3),
-            Col
+            matrix.Multiply(triangle.P1),
+            matrix.Multiply(triangle.P2),
+            matrix.Multiply(triangle.P3),
+            triangle.Col
         );
     }
-
 
     public IEnumerator<Vector3f> GetEnumerator()
     {

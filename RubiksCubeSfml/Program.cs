@@ -6,43 +6,45 @@ using SFML.Window;
 using System.Numerics;
 
 
-var settings = new ContextSettings();
-settings.AntialiasingLevel = 16;
-
-var window = new RenderWindow(new VideoMode(800, 600), "Rubik's Cube", Styles.Default, settings);
-window.Closed += (_, _) => window.Close();
-Vector2f? click = null, drag = null;
-
-window.MouseButtonPressed += Window_MouseButtonPressed;
-window.MouseButtonReleased += Window_MouseButtonReleased;
-window.MouseMoved += Window_MouseMoved;
-
-void Window_MouseMoved(object? sender, MouseMoveEventArgs e)
-{
-    if(click is not null)
-        drag = window.MapPixelToCoords(new Vector2i(e.X, e.Y));
-}
-
-void Window_MouseButtonReleased(object? sender, MouseButtonEventArgs e)
-{
-    click = null;
-    drag = null;
-}
+Console.WriteLine(Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 2, 16f/9f, 1f, 10f).ToPrettyString());
 
 
-void Window_MouseButtonPressed(object? sender, MouseButtonEventArgs e)
-{
-    click = window.MapPixelToCoords(new Vector2i(e.X, e.Y));
-}
-
-window.SetFramerateLimit(60);
-
-Transform transform = Transform.Identity;
-transform.Translate(400, 300);
-transform.Scale(10, -10);
-
+PolygonList<Cube> polygons = new(8);
+Rubiks rubik = new();
 
 Texture texture = new Texture("FaceTexture.png");
+
+float radsToDo = 0;
+CubeMove? move = null;
+
+var window = new PolygonWindow(rubik);
+window.Window.KeyPressed += Window_KeyPressed;
+
+
+void Window_KeyPressed(object? sender, KeyEventArgs e)
+{
+    if (move is not null)
+        return;
+
+    move = e.Code switch
+    {
+        Keyboard.Key.R => CubeMove.Right,
+        Keyboard.Key.L => CubeMove.Left,
+        Keyboard.Key.T => CubeMove.Top,
+        Keyboard.Key.D => CubeMove.Down,
+        Keyboard.Key.F => CubeMove.Front,
+        Keyboard.Key.B => CubeMove.Back,
+        _ => null
+    };
+
+    if (move is null)
+        return;
+
+    radsToDo = MathF.PI / 2f;
+    if(e.Shift)
+        move = (CubeMove)(move.Value + (CubeMove.RightInverted - CubeMove.Right));
+
+}
 
 Color[] colors =
 [
@@ -55,59 +57,48 @@ Color[] colors =
 ];
 
 
-PolygonList<Cube> polygons = new(8);
-Matrix4x4[] posScale = new Matrix4x4[8];
-Matrix4x4[] animation = new Matrix4x4[8];
-Random random = new(42);
+//Matrix4x4[] animation = new Matrix4x4[8];
+//Random random = new(42);
 
-RenderStates rs = new RenderStates(BlendMode.Alpha, transform, texture, null);
 
-for (int i = 0; i <  8; i++)
+//for (int i = 0; i <  8; i++)
+//{
+//    float move = 40f;
+//    int x = (i & 1) == 0 ? 1 : -1;
+//    int y = (i & 2) == 0 ? 1 : -1;
+//    int z = (i & 4) == 0 ? 1 : -1;
+
+
+//    polygons.Add(new Cube(colors,
+//        Matrix4x4.CreateScale(25f) *
+//        Matrix4x4.CreateTranslation(move * x, move * y, move * z)));
+
+//    animation[i] =
+//        Matrix4x4.CreateRotationX((float)(random.NextDouble() * 0.04 - 0.02)) *
+//        Matrix4x4.CreateRotationY((float)(random.NextDouble() * 0.04 - 0.02)) *
+//        Matrix4x4.CreateRotationZ((float)(random.NextDouble() * 0.04 - 0.02));
+//}
+
+const float speed = MathF.PI / (2f * 30f);
+
+window.Run(tf => new RenderStates(BlendMode.Alpha, tf, texture, null), null, () =>
 {
-    float move = 8f;
-    int x = (i & 1) == 0 ? 1 : -1;
-    int y = (i & 2) == 0 ? 1 : -1;
-    int z = (i & 4) == 0 ? 1 : -1;
-
-
-    polygons.Add(new Cube(colors,
-        Matrix4x4.CreateScale(2.5f) *
-        Matrix4x4.CreateTranslation(move * x, move * y, move * z)));
-
-    animation[i] =
-        Matrix4x4.CreateRotationX((float)(random.NextDouble() * 0.04 - 0.02)) *
-        Matrix4x4.CreateRotationY((float)(random.NextDouble() * 0.04 - 0.02)) *
-        Matrix4x4.CreateRotationZ((float)(random.NextDouble() * 0.04 - 0.02));
-
-    //Shader sh = new Shader("", "", "");
-    //sh.set
-
-}
-
-
-while (window.IsOpen)
-{
-    window.DispatchEvents();
-    window.Clear(Color.Cyan);
-
-
-
-    window.Draw(polygons, rs);
-
-    for (int i = 0; i < polygons.Count; i++)
+    if(radsToDo > 0 && move is not null)
     {
-        polygons[i].Transformation = animation[i] * polygons[i].Transformation;
-    }
-    polygons.Transformation *= animation[2];
+        float r = radsToDo;
+        radsToDo = float.Max(radsToDo - speed, 0f);
+        rubik.MoveTransformation(move.Value, r - radsToDo);
 
-    if (click is not null && drag is not null)
-    {
-        var vertArray = new SFML.Graphics.VertexArray(PrimitiveType.Lines, 2);
-        vertArray[0] = new Vertex(click.Value);
-        vertArray[1] = new Vertex(drag.Value);
-
-        window.Draw(vertArray);
+        if(float.Abs(radsToDo) < 0.0001f)
+        {
+            radsToDo = 0;
+            rubik.MoveStructure(move.Value);
+            move = null;
+        }
     }
 
-    window.Display();
-}
+    //for (int i = 0; i < polygons.Count; i++)
+    //{
+    //    polygons[i].Transformation = animation[i] * polygons[i].Transformation;
+    //}
+});

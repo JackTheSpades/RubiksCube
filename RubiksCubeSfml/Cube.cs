@@ -16,13 +16,9 @@ namespace RubiksCubeSfml;
 /// <remarks>Composed of 12 triangles, 2 for each face in the order of front, right, back, left, top, down.</remarks>
 public class Cube : IPolygon
 {
-
-
     Triangle3f[] Triangles;
     public Matrix4x4 Transformation { get; set; }
 
-    //Matrix4x4 TranslationScale;
-    //Matrix4x4 TranslationScaleInverse;
 
     public Cube(Color[] colors) : this(colors, Matrix4x4.Identity) { }
     public Cube(Color[] colors, Matrix4x4 transformation)
@@ -80,17 +76,8 @@ public class Cube : IPolygon
         if (Triangles.SelectMany(t => t).Any(v => float.Abs(v.X) != 0.5f || float.Abs(v.Y) != 0.5f || float.Abs(v.Z) != 0.5f))
             throw new Exception("Huh?");
 #endif
-
-        // initial transformation for location and scaling
-        //for (int i = 0; i < Triangles.Length; i++)
-        //    Triangles[i].Transform(TranslationScale);
     }
 
-    //public void Transform(Matrix4x4 matrix)
-    //{
-    //    for(int i = 0; i < Triangles.Length; i++)
-    //        Triangles[i].Transform(TranslationScaleInverse * matrix * TranslationScale);
-    //}
 
-    public IEnumerable<Triangle3f> GetTriangles() => Triangles.Select(t => t.Transform(Transformation));
+    public IEnumerable<Triangle3f> GetTriangles() => Triangles.Select(t => t * Transformation);
 }

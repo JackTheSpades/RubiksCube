@@ -4,7 +4,7 @@ namespace RubiksCubeSfml;
 
 public interface IPolygon
 {
-    public Matrix4x4 Transformation { get; }
+    public Matrix4x4 Transformation { get; set; }
     public IEnumerable<Triangle3f> GetTriangles();
 }
 
@@ -21,5 +21,5 @@ public class PolygonList<T> : List<T>, IPolygon
     public IEnumerable<Triangle3f> GetTriangles() =>
         this
         .SelectMany(t => t.GetTriangles())
-        .Select(t => t.Transform(Transformation));
+        .Select(t => t * Transformation);
 }
