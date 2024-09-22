@@ -22,10 +22,18 @@ public static class Extensions
                     (m[2, i] * v.Z) +
                     m[3, i];
 
-        if (float.Abs(r[3] - 1) > 0.0001)
-            throw new ArgumentException("Math isn't mathing?");
+        return new Vector3f(r[0] / r[3], r[1] / r[3], r[2] / r[3]);
+    }
+    public static Vector3 Multiply(this Matrix4x4 m, Vector3 v)
+    {
+        float[] r = new float[4];
+        for (int i = 0; i < 4; i++)
+            r[i] = (m[0, i] * v.X) +
+                    (m[1, i] * v.Y) +
+                    (m[2, i] * v.Z) +
+                    m[3, i];
 
-        return new Vector3f(r[0], r[1], r[2]);
+        return new Vector3(r[0] / r[3], r[1] / r[3], r[2] / r[3]);
     }
 
     public static string ToPrettyString(this Matrix4x4 m, string format = "0.000")

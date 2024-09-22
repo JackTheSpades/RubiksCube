@@ -6,8 +6,8 @@ using SFML.Window;
 using System.Numerics;
 
 
-Console.WriteLine(Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 2, 16f/9f, 1f, 10f).ToPrettyString());
-
+//Console.WriteLine(Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 2, 16f/9f, 1f, 10f).ToPrettyString());
+//Console.WriteLine(Matrix4x4.CreateLookAt(Vector3.UnitZ, Vector3.Zero, Vector3.UnitY).ToPrettyString());
 
 PolygonList<Cube> polygons = new(8);
 Rubiks rubik = new();
@@ -17,9 +17,24 @@ Texture texture = new Texture("FaceTexture.png");
 float radsToDo = 0;
 CubeMove? move = null;
 
-var window = new PolygonWindow(rubik);
-window.Window.KeyPressed += Window_KeyPressed;
+var camera = new Camera(
+    //new Vector3(-3f, 3f, 4f),
+    new Vector3(5f, 0f, 0f),
+    new Vector3(0),
+    new Vector3(0f, 1f, 0f),
+    MathF.PI * 2f/4f            // 90°
+    );
 
+Triangle3f tri = new Triangle3f(
+    new Vector3f(-1f, 0f, 0f),
+    new Vector3f(1f, 0f, 0f),
+    new Vector3f(0f, 1.5f, 0f),
+    Color.White
+    );
+
+var window = new PolygonWindow(camera, rubik);
+window.Window.KeyPressed += Window_KeyPressed;
+window.ShowAxis = true;
 
 void Window_KeyPressed(object? sender, KeyEventArgs e)
 {
@@ -46,15 +61,15 @@ void Window_KeyPressed(object? sender, KeyEventArgs e)
 
 }
 
-Color[] colors =
-[
-    new Color(0,0,255),
-    new Color(255, 106, 0),
-    new Color(0, 200, 0),
-    new Color(255, 0, 0),
-    new Color(255, 255, 255),
-    new Color(242, 242, 0)
-];
+//Color[] colors =
+//[
+//    new Color(0,0,255),
+//    new Color(255, 106, 0),
+//    new Color(0, 200, 0),
+//    new Color(255, 0, 0),
+//    new Color(255, 255, 255),
+//    new Color(242, 242, 0)
+//];
 
 
 //Matrix4x4[] animation = new Matrix4x4[8];
@@ -96,9 +111,4 @@ window.Run(tf => new RenderStates(BlendMode.Alpha, tf, texture, null), null, () 
             move = null;
         }
     }
-
-    //for (int i = 0; i < polygons.Count; i++)
-    //{
-    //    polygons[i].Transformation = animation[i] * polygons[i].Transformation;
-    //}
 });

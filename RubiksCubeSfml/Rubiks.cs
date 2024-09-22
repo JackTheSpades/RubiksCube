@@ -144,7 +144,7 @@ public class Rubiks : IPolygon
         CubieStore = new Cube[27];
 
 
-        Transformation = Matrix4x4.CreateScale(20f);
+        Transformation = Matrix4x4.Identity;
 
         Color blue = new(0, 0, 255);
         Color orange = new(255, 106, 0);

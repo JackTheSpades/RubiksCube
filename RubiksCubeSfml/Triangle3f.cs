@@ -5,7 +5,7 @@ using System.Numerics;
 
 namespace RubiksCubeSfml;
 
-public struct Triangle3f : IEnumerable<Vector3f>
+public struct Triangle3f : IEnumerable<Vector3f>, IPolygon
 {
     public float MinZ { get; }
     public float MaxZ { get; }
@@ -14,6 +14,7 @@ public struct Triangle3f : IEnumerable<Vector3f>
     public Vector3f P1 { get; }
     public Vector3f P2 { get; }
     public Vector3f P3 { get; }
+    public Matrix4x4 Transformation { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
     public Triangle3f(Vector3f p1, Vector3f p2, Vector3f p3, Color c)
     {
