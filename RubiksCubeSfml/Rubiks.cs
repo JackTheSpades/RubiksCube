@@ -31,45 +31,29 @@ public class Rubiks : IPolygon
     enum CubeX { Left = 0, Center = 1, Right = 2};
     enum CubeY { Down = 0, Center = 1, Top = 2 };
     enum CubeZ { Back = 0, Center = 1, Front = 2 };
+    enum CubieFace { Front = 0, Right, Back, Left, Top, Down };
 
-    Cube[] CubieStore;
+    private Cube[] CubieStore;
 
-    private static int GetIndex(CubeX x, CubeY y, CubeZ z)
-    {
-        //ternary number system
-        return ((int)x * 9) + ((int)y * 3) + (int)z;
-    }
 
-    private IEnumerable<int> Where(Func<CubeX,CubeY,CubeZ, bool> predicate)
-    {
-        foreach (CubeX x in Enum.GetValues(typeof(CubeX)))
-            foreach (CubeY y in Enum.GetValues(typeof(CubeY)))
-                foreach (CubeZ z in Enum.GetValues(typeof(CubeZ)))
-                    if(predicate(x, y, z))
-                        yield return GetIndex(x, y, z);
-    }
+    public static Color[] CubieFaceColors { get; }
+    /// <summary>Contains a replacement tuply-array of indices into the <see cref="CubieStore"/> for all the non-inverting moves.</summary>
+    private static Dictionary<CubeMove, (int from, int to)[]> Replace;
 
-    private IEnumerable<int> MoveIndecies(CubeMove move)
-    {
-        if ((int)move > 10)
-            move -= 10;
 
-        return move switch
-        {
-            CubeMove.Right => Where((x, y, z) => x == CubeX.Right),
-            CubeMove.Left => Where((x, y, z) => x == CubeX.Left),
-            CubeMove.Top => Where((x, y, z) => y == CubeY.Top),
-            CubeMove.Down => Where((x, y, z) => y == CubeY.Down),
-            CubeMove.Front => Where((x, y, z) => z == CubeZ.Front),
-            CubeMove.Back => Where((x, y, z) => z == CubeZ.Back),
-            _ => Enumerable.Empty<int>()
-        };
-    }
-
-    static Dictionary<CubeMove, (int from, int to)[]> Replace;
 
     static Rubiks()
     {
+        CubieFaceColors =
+        [
+            new(0, 0, 255),     // front  / blue
+            new(255, 106, 0),   // right  / orange
+            new(0, 200, 0),     // back   / green
+            new(255, 0, 0),     // left   / red
+            new(255, 255, 255), // white  / top
+            new(242, 242, 0),   // yellow / down
+        ];
+
         Replace = new();
 
         Replace[CubeMove.Right] = [
@@ -146,28 +130,23 @@ public class Rubiks : IPolygon
 
         Transformation = Matrix4x4.Identity;
 
-        Color blue = new(0, 0, 255);
-        Color orange = new(255, 106, 0);
-        Color green = new(0, 200, 0);
-        Color red = new(255, 0, 0);
-        Color white = new(255, 255, 255);
-        Color yellow = new(242, 242, 0);
         Color black = new(0, 0, 0);
 
+        // slightly smaller than full 1x1x1 cube to avoid sides clipping into each other.
         Matrix4x4 scale = Matrix4x4.CreateScale(0.99f);
 
         foreach(CubeX x in Enum.GetValues(typeof(CubeX)))
             foreach (CubeY y in Enum.GetValues(typeof(CubeY)))
                 foreach (CubeZ z in Enum.GetValues(typeof(CubeZ)))
                 {
-                    Color cLeft = x == CubeX.Left ? red : black;
-                    Color cRight = x == CubeX.Right ? orange : black;
+                    Color cLeft  = x == CubeX.Left  ? CubieFaceColors[(int)CubieFace.Left]  : black;
+                    Color cRight = x == CubeX.Right ? CubieFaceColors[(int)CubieFace.Right] : black;
 
-                    Color cFront = z == CubeZ.Front ? blue : black;
-                    Color cBack = z == CubeZ.Back ? green : black;
+                    Color cFront = z == CubeZ.Front ? CubieFaceColors[(int)CubieFace.Front] : black;
+                    Color cBack  = z == CubeZ.Back  ? CubieFaceColors[(int)CubieFace.Back]  : black;
 
-                    Color cTop = y == CubeY.Top ? white : black;
-                    Color cDown = y == CubeY.Down ? yellow : black;
+                    Color cTop   = y == CubeY.Top   ? CubieFaceColors[(int)CubieFace.Top]   : black;
+                    Color cDown  = y == CubeY.Down  ? CubieFaceColors[(int)CubieFace.Down]  : black;
 
                     var translate = Matrix4x4.CreateTranslation(
                             (float)x - 1f, (float)y - 1f, (float)z - 1f
@@ -178,6 +157,47 @@ public class Rubiks : IPolygon
                         scale * translate
                         );
                 }
+    }
+
+
+    private static int GetIndex(CubeX x, CubeY y, CubeZ z)
+    {
+        //ternary number system
+        return ((int)x * 9) + ((int)y * 3) + (int)z;
+    }
+
+    /// <summary>The indicies into the <see cref="CubieStore"/> using a predicate based on the axis.</summary>
+    /// <param name="predicate"></param>
+    /// <returns></returns>
+    private static IEnumerable<int> Where(Func<CubeX, CubeY, CubeZ, bool> predicate)
+    {
+        foreach (CubeX x in Enum.GetValues(typeof(CubeX)))
+            foreach (CubeY y in Enum.GetValues(typeof(CubeY)))
+                foreach (CubeZ z in Enum.GetValues(typeof(CubeZ)))
+                    if (predicate(x, y, z))
+                        yield return GetIndex(x, y, z);
+    }
+
+    /// <summary></summary>
+    /// <param name="move"></param>
+    /// <returns></returns>
+    private static IEnumerable<int> MoveIndizes(CubeMove move)
+    {
+        int inv = (int)CubeMove.LeftInverted - (int)CubeMove.Left;
+
+        if ((int)move >= inv)
+            move -= inv;
+
+        return move switch
+        {
+            CubeMove.Right => Where((x, y, z) => x == CubeX.Right),
+            CubeMove.Left => Where((x, y, z) => x == CubeX.Left),
+            CubeMove.Top => Where((x, y, z) => y == CubeY.Top),
+            CubeMove.Down => Where((x, y, z) => y == CubeY.Down),
+            CubeMove.Front => Where((x, y, z) => z == CubeZ.Front),
+            CubeMove.Back => Where((x, y, z) => z == CubeZ.Back),
+            _ => Enumerable.Empty<int>()
+        };
     }
 
     public void MoveStructure(CubeMove move)
@@ -223,14 +243,14 @@ public class Rubiks : IPolygon
             _ => Matrix4x4.Identity
         };
 
-        foreach (int index in MoveIndecies(move))
+        foreach (int index in MoveIndizes(move))
             CubieStore[index].Transformation *= m;
     }
 
 
     public Matrix4x4 Transformation { get; set; }
 
-    public IEnumerable<Triangle3f> GetTriangles() =>
+    public IEnumerable<Triangle> GetTriangles() =>
         CubieStore
         .SelectMany(t => t.GetTriangles())
         .Select(t => t * Transformation);
