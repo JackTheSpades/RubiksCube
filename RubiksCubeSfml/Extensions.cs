@@ -25,7 +25,10 @@ public static class Extensions
         return new Vector3(r[0] / r[3], r[1] / r[3], r[2] / r[3]);
     }
 
+    public static bool IsNan(this Vector2 v) => float.IsNaN(v.X) || float.IsNaN(v.Y);
     public static bool IsNan(this Vector3 v) => float.IsNaN(v.X) || float.IsNaN(v.Y) || float.IsNaN(v.Z);
+    public static Vector2f ToSfml(this Vector2 v) => new Vector2f(v.X, v.Y);
+    public static Vector2f ToSfml(this Vector3 v) => new Vector2f(v.X, v.Y);
 
     public static string ToPrettyString(this Matrix4x4 m, string format = "0.000")
     {

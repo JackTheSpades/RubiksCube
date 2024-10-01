@@ -30,6 +30,8 @@ internal class PolygonWindow
     ClickInfo? MoveClick;
 
     public readonly List<IPolygon> Polygons;
+    public readonly List<IModel> Models;
+
     public readonly RenderWindow Window;
 
     public Camera Camera { get; private set; }
@@ -54,6 +56,7 @@ internal class PolygonWindow
     {
         Camera = camera;
         Polygons = new List<IPolygon>(polygons);
+        Models = new List<IModel>();
 
         string fontFolder = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
         Font = new Font(Path.Combine(fontFolder, "Consola.ttf"));
@@ -254,40 +257,91 @@ internal class PolygonWindow
     {
         var viewMatrix = Matrix4x4.CreateLookAt(Camera.Position, Camera.LookAt, Camera.Up);
         var projectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(Camera.FieldOfView, Camera.AspectRatio, 1f, 100f);
+        var viewProjectionMatrix = viewMatrix * projectionMatrix;
 
-        var vp = viewMatrix * projectionMatrix;
+        List<Vector3> positions = new(Models.Sum(m => m.Positions.Count));
+        List<Vector3> normals = new(Models.Sum(m => m.Normals.Count));
+        List<Vector2> textures = new(Models.Sum(m => m.TextureCoords.Count));
+        List<TriangleFace> faces = new(Models.Sum(m => m.Faces.Count));
+
+        uint posOffse = 0, normOffset = 0, texOffset = 0;
+
+        foreach (var m in Models)
+        {
+            var modelViewMatrix = m.Transformation * viewMatrix;
+            var modelViewProjectionMatrix = modelViewMatrix * projectionMatrix;
+
+            positions.AddRange(m.Positions.Select(v => modelViewProjectionMatrix.Multiply(v)));
+            normals.AddRange(m.Normals.Select(v => modelViewMatrix.Multiply(v)));
+            textures.AddRange(m.TextureCoords);
 
 
-        List<Triangle> triangles =
-            Polygons
-                .SelectMany(p => p.GetTriangles())
-                .Select(t => t * vp)
-                .Where(t => Triangle.IsVisible(t.P1, t.P2, t.P3))
-                .ToList();
+            faces.AddRange(
+                m.Faces
+                .Select(f => new TriangleFace(
+                    new Vertex(f.A.PosIndex + posOffse, f.A.TextureIndex + texOffset, f.A.NormalIndex + normOffset, f.A.Color),
+                    new Vertex(f.B.PosIndex + posOffse, f.B.TextureIndex + texOffset, f.B.NormalIndex + normOffset, f.B.Color),
+                    new Vertex(f.C.PosIndex + posOffse, f.C.TextureIndex + texOffset, f.C.NormalIndex + normOffset, f.C.Color)
+                ))
+                .Where(f => Triangle.IsVisible(positions[(int)f.A.PosIndex], positions[(int)f.B.PosIndex], positions[(int)f.C.PosIndex]))
+            );
 
-        List<Vector3> vertices = triangles.SelectMany(t => t).ToList();
+            posOffse = (uint)positions.Count;
+            normOffset = (uint)normals.Count;
+            texOffset = (uint)textures.Count;
+        }
+
+
+        //List<Triangle> triangles =
+        //    Polygons
+        //        .SelectMany(p => p.GetTriangles())
+        //        .Select(t => t * viewProjectionMatrix)
+        //        .Where(t => Triangle.IsVisible(t.P1, t.P2, t.P3))
+        //        .ToList();
+
+        //List<Vector3> vertices = triangles.SelectMany(t => t).ToList();
 
         VertexArray vertexArray = new VertexArray(PrimitiveType.Triangles);
 
-        int[] indizes = SortTriangles(vertices);
+        //int[] indizes = SortTriangles(positions, faces);
+        int[] indizes = Enumerable.Range(0, faces.Count).ToArray();
 
-        // draw back to front
-        foreach (int triIndex in indizes)
+
+        for (int i = 0; i < faces.Count; i++)
         {
-            int vertIndex = triIndex * 3;
-            if (vertices[vertIndex].Z is < -1 or > 1 ||
-                vertices[vertIndex + 1].Z is < -1 or > 1 ||
-                vertices[vertIndex + 2].Z is < -1 or > 1)
-                        continue;
+            var face = faces[indizes[i]];
 
-            var p1 = new Vector2f(vertices[vertIndex].X, vertices[vertIndex].Y);
-            var p2 = new Vector2f(vertices[vertIndex + 1].X, vertices[vertIndex + 1].Y);
-            var p3 = new Vector2f(vertices[vertIndex + 2].X, vertices[vertIndex + 2].Y);
+            //int vertIndex = triIndex * 3;
+            if (positions[(int)face.A.PosIndex].Z is < -1 or > 1 ||
+                positions[(int)face.B.PosIndex].Z is < -1 or > 1 ||
+                positions[(int)face.C.PosIndex].Z is < -1 or > 1)
+                continue;
+
+            //var p1 = new Vector2f(vertices[vertIndex].X, vertices[vertIndex].Y);
+            //var p2 = new Vector2f(vertices[vertIndex + 1].X, vertices[vertIndex + 1].Y);
+            //var p3 = new Vector2f(vertices[vertIndex + 2].X, vertices[vertIndex + 2].Y);
 
 
-            vertexArray.Append(new Vertex(p1, triangles[triIndex].Col, new Vector2f(0, 0)));
-            vertexArray.Append(new Vertex(p2, triangles[triIndex].Col, new Vector2f(0, 200)));
-            vertexArray.Append(new Vertex(p3, triangles[triIndex].Col, new Vector2f(200, 0)));
+            //vertexArray.Append(new SFML.Graphics.Vertex(p1, triangles[triIndex].Col, new Vector2f(0, 0)));
+            //vertexArray.Append(new SFML.Graphics.Vertex(p2, triangles[triIndex].Col, new Vector2f(0, 200)));
+            //vertexArray.Append(new SFML.Graphics.Vertex(p3, triangles[triIndex].Col, new Vector2f(200, 0)));
+
+            //Shader sh = new("", "", "");
+            //new SFML.Graphics.Glsl.Mat3()
+            //sh.SetUniformArray()
+
+
+
+            for(int j = 0; j < 3; j++)
+            {
+                var pos  = positions[(int)face[j].PosIndex];
+                var norm = normals[(int)face[j].NormalIndex];
+                var tex =  textures[(int)face[j].TextureIndex];
+                var col = new Color(face[j].Color);
+
+                vertexArray.Append(new SFML.Graphics.Vertex(pos.ToSfml(), col, tex.ToSfml()));
+            }
+
         }
 
         Window.Draw(vertexArray, state);
@@ -297,24 +351,202 @@ internal class PolygonWindow
         {
             var lines = new VertexArray(PrimitiveType.Lines);
 
-            var zero = vp.Multiply(Vector3.Zero);
+            var zero = viewProjectionMatrix.Multiply(Vector3.Zero);
 
             var zero2f = new Vector2f(zero.X, zero.Y);
 
-            var x = vp.Multiply(Vector3.UnitX);
-            var y = vp.Multiply(Vector3.UnitY);
-            var z = vp.Multiply(Vector3.UnitZ);
+            var x = viewProjectionMatrix.Multiply(Vector3.UnitX);
+            var y = viewProjectionMatrix.Multiply(Vector3.UnitY);
+            var z = viewProjectionMatrix.Multiply(Vector3.UnitZ);
 
-            lines.Append(new Vertex(zero2f, Color.Red));
-            lines.Append(new Vertex(new Vector2f(x.X, x.Y), Color.Red));
-            lines.Append(new Vertex(zero2f, Color.Blue));
-            lines.Append(new Vertex(new Vector2f(y.X, y.Y), Color.Blue));
-            lines.Append(new Vertex(zero2f, Color.Green));
-            lines.Append(new Vertex(new Vector2f(z.X, z.Y), Color.Green));
+            lines.Append(new SFML.Graphics.Vertex(zero2f, Color.Red));
+            lines.Append(new SFML.Graphics.Vertex(new Vector2f(x.X, x.Y), Color.Red));
+            lines.Append(new SFML.Graphics.Vertex(zero2f, Color.Blue));
+            lines.Append(new SFML.Graphics.Vertex(new Vector2f(y.X, y.Y), Color.Blue));
+            lines.Append(new SFML.Graphics.Vertex(zero2f, Color.Green));
+            lines.Append(new SFML.Graphics.Vertex(new Vector2f(z.X, z.Y), Color.Green));
 
             Window.Draw(lines, state);
         }
     }
+
+    public static int[] SortTriangles(List<Vector3> positions, List<TriangleFace> faces)
+    {
+        /*
+         * Triangle sorting is fairly tricky, since we can't just use the Z coordinates
+         * Imagine two slanted triangles (coordinates in clip space after dividing by w)
+         * such that the above triangle is positioned behind the bottom triangle
+         * but still reaching further into the Z axis and stopping sooner.
+         * 
+         *   y                          y                       y    
+         *   ^                          ^                       ^    
+         *   |            /             |        /\             |        /\
+         *   |           /              |       /  \            |       /  \
+         *   |          /               |      /    \           |      /    \
+         *   |         / /              |     /  /\  \          |    \‾‾‾‾‾‾‾‾/
+         *   |        / /               |    /__/  \__\         |    /\      /\
+         *   |         /                |      /    \           |    ‾‾\    /‾‾
+         *   |        /                 |     /      \          |       \  /
+         *   |       /                  |    /________\         |        \/
+         *   |                          |                       |    
+         *   o----------------> z       o--------------> x      o--------------> x
+         *           123456                 Front Option 1          Front Option 2
+         *   
+         * Assuming we have Triangle.MinZ as Min(Triangle.P1.Z, Triangle.P2.Z, Triangle.P3.Z)
+         * and a correlated MaxZ, we can see that neither of these would provide the correct sorting
+         *   
+         * We need to draw the triangles back to front, such that triangles in the front are drawn on top of
+         * the earlier ones, as we don't have a Z-Buffer available.
+         *   
+         * For the above illustration the top triangle would have a MinZ of 2 and MaxZ of 6, while the 
+         * bottom triangle has a MinZ of 1 and MaxZ of 5.
+         * So regardless what we sort by, the bottom triangle would be sorted before the top triangle.
+         * 
+         * To sort two triangles we compare all their edges against one another.
+         * First, we look for a 2D intersection point in which we ignore the Z coordinate.
+         * Since the coordinates are already in clip space and the final drawing will only use X/Y this will match with
+         * intersections on screen.
+         * 
+         * If two edges intersect, we can calculate the X/Y coordinates of this intersection.
+         * We can then translate back into 3D and solve for Z on both edges for this intersection.
+         * The triangle with the higher z will be in the back.
+         * 
+         * 
+         * 
+         * After we also need to check if one triangle is fully inside the other since this would mean their
+         * edges don't intersect
+         * For this, we check if the average point of triangle i is contained within triangle j
+         * and vice versa. We use the average to avoid rounding shenanigans on triangles that share edges
+         * 
+         * Once we have a point that is inside the triangle (from the 2D screen perspective) we can just take that point's Z coordinate.
+         * We can then use ray tracing starting from that point along the Z axis to get the point on the triangle with the same X/Y coordinates.
+         * Then we can compare the average point's Z with the triangle intersection point Z.
+         * 
+        */
+
+        const float epsilon = 0.0001f;
+
+        var faceIndizes = Enumerable.Range(0, faces.Count).ToArray();
+
+        for (int i = 0; i < faceIndizes.Length; i++)
+            for (int j = i + 1; j < faceIndizes.Length; j++)
+            {
+
+                // start index of the triangle in vertices buffer
+                int faceIndexI = faceIndizes[i];
+                int faceIndexJ = faceIndizes[j];
+
+                if (!BoxIntersect2D(
+                    positions[(int)faces[faceIndexI].A.PosIndex], positions[(int)faces[faceIndexI].B.PosIndex], positions[(int)faces[faceIndexI].C.PosIndex],
+                    positions[(int)faces[faceIndexJ].A.PosIndex], positions[(int)faces[faceIndexJ].B.PosIndex], positions[(int)faces[faceIndexJ].C.PosIndex]
+                    ))
+                    continue;
+
+                // each triangle has 3 edges [0,1], [1,2] [2,0]
+                for (int edge1 = 0; edge1 < 3; edge1++)
+                    for (int edge2 = 0; edge2 < 3; edge2++)
+                    {
+                        var a1 = positions[(int)faces[faceIndexI][edge1].PosIndex];
+                        var b1 = positions[(int)faces[faceIndexI][edge1 + 1].PosIndex];              
+
+                        var a2 = positions[(int)faces[faceIndexJ][edge1].PosIndex];
+                        var b2 = positions[(int)faces[faceIndexJ][edge1 + 1].PosIndex];
+
+                        var dir1 = b1 - a1;
+                        var dir2 = b2 - a2;
+
+                        (float u, float v) = RayIntersect2D(a1, dir1, a2, dir2, epsilon);
+
+                        // check if the rays were parallel
+                        // or if one of the directions was (0,0,z) aka paralle to the z-axis
+                        if (float.IsNaN(u))
+                            continue;
+
+                        // equation was solved such that a1 + dir1 * u == a2 + dir2 * v
+                        // this intersection could have been anywhere in 2D space.
+                        // since dir = b - a
+                        // we can make sure that the intersection happened in the [a1,b1] [a2,b2] range
+                        if (u is <= epsilon or >= 1-epsilon || v is <= epsilon or >= 1-epsilon)
+                            continue;
+
+                        float z1 = (a1 + dir1 * u).Z;
+                        float z2 = (a2 + dir2 * v).Z;
+
+                        // higher z value means it needs to be drawn first
+                        // meaning it needs to be ahead in the array
+                        if (z2 > z1)
+                            (faceIndizes[j], faceIndizes[i]) = (faceIndizes[i], faceIndizes[j]);
+
+                        // release the velociraptor
+                        goto EndCheck;
+                    }
+
+
+
+                // check if point of triangle 1 is inside triangle 2
+                int ptIndex = faceIndexI;
+                int triIndex = faceIndexJ;
+                bool swapped = false;
+                Vector3 pt = (positions[(int)faces[ptIndex].A.PosIndex] +
+                    positions[(int)faces[ptIndex].B.PosIndex] +
+                    positions[(int)faces[ptIndex].C.PosIndex]) / 3;
+
+                if (!PointInTriangle2D(pt, positions[(int)faces[triIndex].A.PosIndex], positions[(int)faces[triIndex].B.PosIndex], positions[(int)faces[triIndex].C.PosIndex]))
+                {
+                    // if not, check if avg(tri-2) is inside tri-1
+                    ptIndex = faceIndexJ;
+                    triIndex = faceIndexI;
+                    swapped = true;
+
+                    pt = (positions[(int)faces[ptIndex].A.PosIndex] +
+                        positions[(int)faces[ptIndex].B.PosIndex] +
+                        positions[(int)faces[ptIndex].C.PosIndex]) / 3;
+                    if (!PointInTriangle2D(pt, positions[(int)faces[triIndex].A.PosIndex], positions[(int)faces[triIndex].B.PosIndex], positions[(int)faces[triIndex].C.PosIndex]))
+                    {
+                        ptIndex = -1;
+                        triIndex = -1;
+                    }
+                }
+
+                if (ptIndex >= 0 && triIndex >= 0)
+                {
+                    float zPt = pt.Z;
+
+                    // ray tracing using the average point as origin and going along the z axis for direction.
+                    // the intersection with the triangle is (O + D * t)
+                    float t = MoellerTrumbore(pt, Vector3.UnitZ,
+                        positions[(int)faces[triIndex].A.PosIndex], positions[(int)faces[triIndex].B.PosIndex], positions[(int)faces[triIndex].C.PosIndex],
+                        epsilon);
+
+                    float zTri = (pt + Vector3.UnitZ * t).Z;
+
+                    // swapped = false -> zPt is triangle[i], zTri is triangle[j]   -> zi = zPt,  zj = zTri
+                    // swapped = true  -> zPt is triangle[j], zTri is triangle[i]   -> zi = zTri, zj = zPt
+                    // higher z needs to have lower index (be drawn first)
+
+                    float zi = zPt, zj = zTri;
+                    if (swapped)
+                        (zi, zj) = (zTri, zPt);
+
+                    if (zj > zi)
+                        (faceIndizes[j], faceIndizes[i]) = (faceIndizes[i], faceIndizes[j]);
+                }
+
+
+
+
+
+
+
+            // unpopular opinon:
+            // labels and goto are great for breaking out of multiple nested loops
+            EndCheck:;
+            }
+
+        return faceIndizes;
+    }
+
+
 
     public static int[] SortTriangles(List<Vector3> vertices)
     {
@@ -382,7 +614,7 @@ internal class PolygonWindow
                 int triangle1 = triIndizes[i] * 3;
                 int triangle2 = triIndizes[j] * 3;
 
-                if (!BoxIntersect(
+                if (!BoxIntersect2D(
                     vertices[triangle1], vertices[triangle1 + 1], vertices[triangle1 + 2],
                     vertices[triangle2], vertices[triangle2 + 1], vertices[triangle2 + 2]
                     ))
@@ -530,7 +762,7 @@ internal class PolygonWindow
         return (min, max);
     }
 
-    static bool BoxIntersect(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 w1, Vector3 w2, Vector3 w3)
+    static bool BoxIntersect2D(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 w1, Vector3 w2, Vector3 w3)
     {
         (float left1, float right1) = MinMax(v1.X, v2.X, v3.X);
         (float left2, float right2) = MinMax(w1.X, w2.X, w3.X);
@@ -556,10 +788,11 @@ internal class PolygonWindow
     /// <param name="aDirection">Direction of Ray-A.</param>
     /// <param name="bOrigin">Origin of Ray-B.</param>
     /// <param name="bDirection">Direction of Ray-B.</param>
+    /// <param name="epsilon">Small float to avoid checking floating-point numbers equaling zero.</param>
     /// <returns>The floats u and v such that <code>aOrigin + aDirection * u == bOrigin + bDirection * v</code>.
     /// Or <see cref="float.NaN"/> if the rays are parallel.</returns>
     /// <remarks><a href="https://stackoverflow.com/a/2932601/9883041">Source</a></remarks>
-    public static (float u, float v) RayIntersect2D(Vector3 aOrigin, Vector3 aDirection, Vector3 bOrigin, Vector3 bDirection, float epsilon = float.Epsilon)
+    public static (float u, float v) RayIntersect2D(Vector3 aOrigin, Vector3 aDirection, Vector3 bOrigin, Vector3 bDirection, float epsilon = 0.0001f)
     {
         var dx = bOrigin.X - aOrigin.X;
         var dy = bOrigin.Y - aOrigin.Y;
@@ -576,11 +809,11 @@ internal class PolygonWindow
     /// </summary>
     /// <param name="origin">The origin of the ray.</param>
     /// <param name="direction">The direction of the ray.</param>
-    /// <param name="v1"></param>
-    /// <param name="v2"></param>
-    /// <param name="v3"></param>
+    /// <param name="v1">Vertex One of the triangle.</param>
+    /// <param name="v2">Vertex Two of the triangle.</param>
+    /// <param name="v3">Vertex Three of the triangle.</param>
     /// <param name="epsilon">Small float to avoid checking floating-point numbers equaling zero.</param>
-    /// <returns>The value t such that origin + direction * t describes the point on the triangle where the ray intersects.
+    /// <returns>The value t describes the point on the triangle where the ray intersects such that: <code>origin + direction * t</code>
     /// Or <see cref="float.NaN"/> if no intersection is found.</returns>
     /// <remarks><a href="https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm">Wikipedia Source</a>.</remarks>
     public static float MoellerTrumbore(Vector3 origin, Vector3 direction, Vector3 v1, Vector3 v2, Vector3 v3, float epsilon = 0.0001f)
@@ -590,7 +823,7 @@ internal class PolygonWindow
         Vector3 rayCrossEdge2 = Vector3.Cross(direction, edge2);
         float det = Vector3.Dot(edge1, rayCrossEdge2);
 
-        // // This ray is parallel to this triangle.
+        // This ray is parallel to this triangle.
         if (float.Abs(det) < epsilon)
             return float.NaN;
 
@@ -608,10 +841,6 @@ internal class PolygonWindow
             return float.NaN;
 
         float t = invDet * Vector3.Dot(edge2, sCrossEdge1);
-
-        //if (t > epsilon)
-        //    return t;
-        //return float.NaN;
 
         return t;
     }

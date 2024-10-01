@@ -2,13 +2,158 @@
 using SFML.System;
 using System;
 using System.Collections.Generic;
+//using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace RubiksCubeSfml;
+
+public class CubeModel : IModel
+{
+    public IReadOnlyList<Vector3> Positions { get; }
+    public IReadOnlyList<Vector3> Normals { get; }
+    public IReadOnlyList<Vector2> TextureCoords { get; }
+    public List<TriangleFace> Faces { get; }
+    public Matrix4x4 Transformation { get; set; }
+
+    const uint PosIndexLTF = 1;
+    const uint PosIndexLDF = 2;
+    const uint PosIndexRTF = 3;
+    const uint PosIndexRDF = 4;
+    const uint PosIndexLTB = 5;
+    const uint PosIndexLDB = 6;
+    const uint PosIndexRTB = 7;
+    const uint PosIndexRDB = 8;
+
+    const uint NormIndexF = 1;
+    const uint NormIndexR = 2;
+    const uint NormIndexB = 3;
+    const uint NormIndexL = 4;
+    const uint NormIndexT = 5;
+    const uint NormIndexD = 6;
+
+    public CubeModel(Color[] colors) : this(colors, Matrix4x4.Identity) { }
+    public CubeModel(Color[] colors, Matrix4x4 transformation)
+    {
+        Transformation = transformation;
+
+        uint[] uintColors = colors.Select(c => c.ToInteger()).ToArray();
+        Vector3 nan3 = new Vector3(float.NaN);
+
+        TextureCoords = new List<Vector2>() { new Vector2(0f) };
+
+        Vector3 R = new Vector3(0.5f, 0, 0);
+        Vector3 T = new Vector3(0, 0.5f, 0);
+        Vector3 F = new Vector3(0, 0, 0.5f);
+        Vector3 L = -R;
+        Vector3 D = -T;
+        Vector3 B = -F;
+
+        Positions = new List<Vector3>(9)
+        { 
+            nan3,
+            L + T + F,
+            L + D + F,
+            R + T + F,
+            R + D + F,
+            L + T + B,
+            L + D + B,
+            R + T + B,
+            R + D + B,
+        };
+
+        Normals = new List<Vector3>(7) 
+        { 
+            nan3,
+            Vector3.UnitZ,  // front
+            Vector3.UnitX,  // right
+            -Vector3.UnitZ, // back
+            -Vector3.UnitX, // left
+            Vector3.UnitY,  // top
+            -Vector3.UnitY, // back
+        };
+
+        Faces = new List<TriangleFace>()
+        {
+            // Front
+            new TriangleFace(
+                new Vertex(PosIndexLTF, 0, NormIndexF, uintColors[0 % colors.Length]),
+                new Vertex(PosIndexLDF, 0, NormIndexF, uintColors[0 % colors.Length]),
+                new Vertex(PosIndexRTF, 0, NormIndexF, uintColors[0 % colors.Length])
+            ),
+            new TriangleFace(
+                new Vertex(PosIndexRDF, 0, NormIndexF, uintColors[6 % colors.Length]),
+                new Vertex(PosIndexRTF, 0, NormIndexF, uintColors[6 % colors.Length]),
+                new Vertex(PosIndexLDF, 0, NormIndexF, uintColors[6 % colors.Length])
+            ),
+
+            // Right
+            new TriangleFace(
+                new Vertex(PosIndexRTF, 0, NormIndexR, uintColors[1 % colors.Length]),
+                new Vertex(PosIndexRDF, 0, NormIndexR, uintColors[1 % colors.Length]),
+                new Vertex(PosIndexRTB, 0, NormIndexR, uintColors[1 % colors.Length])
+            ),
+            new TriangleFace(
+                new Vertex(PosIndexRDB, 0, NormIndexR, uintColors[7 % colors.Length]),
+                new Vertex(PosIndexRTB, 0, NormIndexR, uintColors[7 % colors.Length]),
+                new Vertex(PosIndexRDF, 0, NormIndexR, uintColors[7 % colors.Length])
+            ),
+
+            // Back
+            new TriangleFace(
+                new Vertex(PosIndexRTB, 0, NormIndexB, uintColors[2 % colors.Length]),
+                new Vertex(PosIndexRDB, 0, NormIndexB, uintColors[2 % colors.Length]),
+                new Vertex(PosIndexLTB, 0, NormIndexB, uintColors[2 % colors.Length])
+            ),
+            new TriangleFace(
+                new Vertex(PosIndexLDB, 0, NormIndexB, uintColors[8 % colors.Length]),
+                new Vertex(PosIndexLTB, 0, NormIndexB, uintColors[8 % colors.Length]),
+                new Vertex(PosIndexRDB, 0, NormIndexB, uintColors[8 % colors.Length])
+            ),
+            
+            // Left
+            new TriangleFace(
+                new Vertex(PosIndexLTB, 0, NormIndexL, uintColors[3 % colors.Length]),
+                new Vertex(PosIndexLDB, 0, NormIndexL, uintColors[3 % colors.Length]),
+                new Vertex(PosIndexLTF, 0, NormIndexL, uintColors[3 % colors.Length])
+            ),
+            new TriangleFace(
+                new Vertex(PosIndexLDF, 0, NormIndexL, uintColors[9 % colors.Length]),
+                new Vertex(PosIndexLTF, 0, NormIndexL, uintColors[9 % colors.Length]),
+                new Vertex(PosIndexLDB, 0, NormIndexL, uintColors[9 % colors.Length])
+            ),
+            
+            // Top
+            new TriangleFace(
+                new Vertex(PosIndexLTB, 0, NormIndexT, uintColors[4 % colors.Length]),
+                new Vertex(PosIndexLTF, 0, NormIndexT, uintColors[4 % colors.Length]),
+                new Vertex(PosIndexRTB, 0, NormIndexT, uintColors[4 % colors.Length])
+            ),
+            new TriangleFace(
+                new Vertex(PosIndexRTF, 0, NormIndexT, uintColors[10 % colors.Length]),
+                new Vertex(PosIndexRTB, 0, NormIndexT, uintColors[10 % colors.Length]),
+                new Vertex(PosIndexLTF, 0, NormIndexT, uintColors[10 % colors.Length])
+            ),
+            
+            // Down
+            new TriangleFace(
+                new Vertex(PosIndexLDF, 0, NormIndexD, uintColors[5 % colors.Length]),
+                new Vertex(PosIndexLDB, 0, NormIndexD, uintColors[5 % colors.Length]),
+                new Vertex(PosIndexRDF, 0, NormIndexD, uintColors[5 % colors.Length])
+            ),
+            new TriangleFace(
+                new Vertex(PosIndexRDB, 0, NormIndexD, uintColors[11 % colors.Length]),
+                new Vertex(PosIndexRDF, 0, NormIndexD, uintColors[11 % colors.Length]),
+                new Vertex(PosIndexLDB, 0, NormIndexD, uintColors[11 % colors.Length])
+            ),
+        };
+    }
+}
 
 /// <summary>
 /// Unit Cube centered about the origin.

@@ -1,15 +1,29 @@
 ﻿using RubiksCubeSfml;
 using SFML.Graphics;
+using SFML.Graphics.Glsl;
 using SFML.Window;
 using System.Numerics;
+using System.Text;
 
 
-//Cube single = new Cube(Rubiks.CubieFaceColors, Matrix4x4.CreateScale(3f));
+
+//var obj = new ObjModel("CubeRounded226.obj");
+
+
+//string modelFilename;
+//modelFilename = "x-wing";
+//modelFilename = "vader";
+
+//var modelTexture = new Texture(Path.ChangeExtension(modelFilename, "png"));
+//var modelObject = new ObjModel(Path.ChangeExtension(modelFilename, "obj"), (x,y) => new Vector2(x * modelTexture.Size.X, (1 - y) * modelTexture.Size.Y));
+
 
 Rubiks rubik = new();
 
 
-Texture texture = new Texture("FaceTexture.png");
+var cubeModel = new CubeModel(Rubiks.CubieFaceColors);
+
+//Texture texture = new Texture("FaceTexture.png");
 
 
 var camera = new Camera(
@@ -24,7 +38,8 @@ float radsToDo = 0;
 CubeMove? move = null;
 
 
-var window = new PolygonWindow(camera, "Rubik's Cube", rubik);
+var window = new PolygonWindow(camera, "Rubik's Cube");
+window.Models.Add(cubeModel);
 window.Window.KeyPressed += Window_KeyPressed;
 window.ShowAxis = true;
 
@@ -60,7 +75,7 @@ void Window_KeyPressed(object? sender, KeyEventArgs e)
 const float speed = MathF.PI / (2f * 30f);
 
 
-window.Run(tf => new RenderStates(BlendMode.Alpha, tf, texture, null), null, () =>
+window.Run(tf => new RenderStates(BlendMode.Alpha, tf, null, null), null, () =>
 {
     if(radsToDo > 0 && move is not null)
     {
